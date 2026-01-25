@@ -4,8 +4,13 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Build
+import com.example.weatherapp.BuildConfig
 
 object Constants {
+    const val APP_ID = BuildConfig.API_KEY
+    const val BASE_URL = "https://api.openweathermap.org/data/"
+    const val METRIC_UNIT = "metric"
+
     // Define a function called isNetworkAvailable that takes a Context parameter and returns a Boolean value
     fun isNetworkAvailable(context: Context): Boolean {
         //Get  an instance of Connectivity Manager using the context parameter

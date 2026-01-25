@@ -9,6 +9,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Looper
 import android.provider.Settings
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AlertDialog
@@ -16,6 +17,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import com.example.weatherapp.models.WeatherResponse
 import com.example.weatherapp.utils.Constants
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
@@ -23,6 +25,11 @@ import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 
 class MainActivity : AppCompatActivity() {
     private val REQUEST_LOCATION_CODE = 5555
@@ -74,21 +81,51 @@ class MainActivity : AppCompatActivity() {
             .build()
         mFusedLocationClient.requestLocationUpdates(locationRequest, object : LocationCallback() {
             override fun onLocationResult(locationResult: LocationResult) {
-                Toast.makeText(
-                    this@MainActivity,
-                    "Latitude: ${locationResult.lastLocation?.latitude} \n" +
-                            "Longitude: ${locationResult.lastLocation?.longitude}",
-                    Toast.LENGTH_SHORT
-                ).show()
 
-                getLocationWheatherDetails()
+                getLocationWheatherDetails(
+                    locationResult.lastLocation?.latitude!!,
+                    locationResult.lastLocation?.longitude!!)
             }
         }, Looper.myLooper())
     }
 
-    private fun getLocationWheatherDetails() {
+    private fun getLocationWheatherDetails(latitude: Double, longitude: Double) {
         if (Constants.isNetworkAvailable(this)) {
-            Toast.makeText(this, "There is internet connection", Toast.LENGTH_SHORT).show()
+            val retrofit = Retrofit.Builder()
+                .baseUrl(Constants.BASE_URL)
+                .addConverterFactory(GsonConverterFactory.create())
+                .build()
+
+            val serviceApi = retrofit.create(WeatherServiceApi::class.java)
+
+            val call = serviceApi.getWeatherDetails(
+                latitude, longitude,
+                Constants.APP_ID,
+                Constants.METRIC_UNIT
+            )
+
+            call.enqueue(object : Callback<WeatherResponse>{
+                override fun onResponse(
+                    call: Call<WeatherResponse>,
+                    response: Response<WeatherResponse>
+                ) {
+                    if (response.isSuccessful){
+                        val weather = response.body()
+                        Log.d("WEATHER", weather.toString())
+                    } else{
+                        Toast.makeText(this@MainActivity, "Something Went Wrong", Toast.LENGTH_SHORT).show()
+                    }
+                }
+
+                override fun onFailure(
+                    call: Call<WeatherResponse>,
+                    t: Throwable
+                ) {
+
+                }
+
+            })
+
         } else {
             Toast.makeText(this, "There is no internet connection", Toast.LENGTH_SHORT).show()
         }

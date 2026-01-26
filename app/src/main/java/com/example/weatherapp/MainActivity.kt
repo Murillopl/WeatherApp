@@ -1,74 +1,66 @@
 package com.example.weatherapp
 
+
 import android.annotation.SuppressLint
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.location.LocationManager
+import android.location.LocationRequest
 import android.net.Uri
+import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Looper
 import android.provider.Settings
 import android.util.Log
+import android.widget.TextView
 import android.widget.Toast
-import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AlertDialog
-import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
+import com.example.weatherapp.models.Weather
 import com.example.weatherapp.models.WeatherResponse
 import com.example.weatherapp.utils.Constants
-import com.google.android.gms.location.FusedLocationProviderClient
-import com.google.android.gms.location.LocationCallback
-import com.google.android.gms.location.LocationRequest
-import com.google.android.gms.location.LocationResult
-import com.google.android.gms.location.LocationServices
-import com.google.android.gms.location.Priority
+import com.google.android.gms.location.*
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.text.DateFormat
+import java.text.SimpleDateFormat
+import java.util.*
+
 
 class MainActivity : AppCompatActivity() {
-    private val REQUEST_LOCATION_CODE = 5555
+    private val REQUEST_LOCATION_CODE = 123123
     private lateinit var mFusedLocationClient: FusedLocationProviderClient
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
         setContentView(R.layout.activity_main)
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
-            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
-            insets
-        }
 
         mFusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
-
         if (!isLocationEnabled()) {
-            Toast.makeText(this@MainActivity, "The location is not enabled", Toast.LENGTH_SHORT)
+
+            Toast.makeText(this@MainActivity, "The location is not enabled", Toast.LENGTH_LONG)
                 .show()
 
-            requestPermissions()
+            val intent = Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
+            startActivity(intent)
         } else {
-            Toast.makeText(this@MainActivity, "The location is already ON", Toast.LENGTH_SHORT)
-                .show()
+            requestPermissions()
         }
 
     }
 
+
     override fun onRequestPermissionsResult(
         requestCode: Int,
-        permissions: Array<out String?>,
-        grantResults: IntArray,
-        deviceId: Int
+        permissions: Array<out String>,
+        grantResults: IntArray
     ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults, deviceId)
-
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == REQUEST_LOCATION_CODE && grantResults.size > 0) {
-            Toast.makeText(this, "Permission Granted", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Permission granted", Toast.LENGTH_SHORT).show()
             requestLocationData()
         } else {
             Toast.makeText(this, "The permission was not granted", Toast.LENGTH_SHORT).show()
@@ -77,19 +69,21 @@ class MainActivity : AppCompatActivity() {
 
     @SuppressLint("MissingPermission")
     private fun requestLocationData() {
-        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1000)
-            .build()
+        val locationRequest = com.google.android.gms.location.LocationRequest.Builder(
+            Priority.PRIORITY_HIGH_ACCURACY, 1000
+        ).build()
         mFusedLocationClient.requestLocationUpdates(locationRequest, object : LocationCallback() {
             override fun onLocationResult(locationResult: LocationResult) {
 
-                getLocationWheatherDetails(
+                getLocationWeatherDetails(
                     locationResult.lastLocation?.latitude!!,
-                    locationResult.lastLocation?.longitude!!)
+                    locationResult.lastLocation?.longitude!!
+                )
             }
         }, Looper.myLooper())
     }
 
-    private fun getLocationWheatherDetails(latitude: Double, longitude: Double) {
+    private fun getLocationWeatherDetails(latitude: Double, longitude: Double) {
         if (Constants.isNetworkAvailable(this)) {
             val retrofit = Retrofit.Builder()
                 .baseUrl(Constants.BASE_URL)
@@ -104,31 +98,51 @@ class MainActivity : AppCompatActivity() {
                 Constants.METRIC_UNIT
             )
 
-            call.enqueue(object : Callback<WeatherResponse>{
+            call.enqueue(object : Callback<WeatherResponse> {
                 override fun onResponse(
                     call: Call<WeatherResponse>,
                     response: Response<WeatherResponse>
                 ) {
-                    if (response.isSuccessful){
+                    if (response.isSuccessful) {
                         val weather = response.body()
-                        Log.d("WEATHER", weather.toString())
-                    } else{
-                        Toast.makeText(this@MainActivity, "Something Went Wrong", Toast.LENGTH_SHORT).show()
+                        for (i in weather!!.weather.indices) {
+                            findViewById<TextView>(R.id.text_view_sunset).text = convertTime(weather.sys.sunset.toLong())
+                            findViewById<TextView>(R.id.text_view_sunrise).text = convertTime(weather.sys.sunrise.toLong())
+                            findViewById<TextView>(R.id.text_view_status).text = weather.weather[i].description
+                            findViewById<TextView>(R.id.text_view_address).text = weather.name
+                            findViewById<TextView>(R.id.text_view_address).text = weather.name
+                            findViewById<TextView>(R.id.text_view_temp_max).text = weather.main.temp_max.toString() +" max"
+                            findViewById<TextView>(R.id.text_view_temp_min).text = weather.main.temp_max.toString() + " min"
+                            findViewById<TextView>(R.id.text_view_temp).text = weather.main.temp.toString() +"°C"
+                            findViewById<TextView>(R.id.text_view_humidity).text = weather.main.humidity.toString()
+                            findViewById<TextView>(R.id.text_view_pressure).text = weather.main.pressure.toString()
+                            findViewById<TextView>(R.id.text_view_wind).text = weather.wind.speed.toString()
+                        }
+                    } else {
+                        Toast.makeText(
+                            this@MainActivity,
+                            "Something went wrong",
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
                 }
 
-                override fun onFailure(
-                    call: Call<WeatherResponse>,
-                    t: Throwable
-                ) {
-
+                override fun onFailure(call: Call<WeatherResponse>?, t: Throwable?) {
+                    Toast.makeText(this@MainActivity, t.toString(), Toast.LENGTH_SHORT).show()
                 }
 
             })
 
         } else {
-            Toast.makeText(this, "There is no internet connection", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "There's no internet connection", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    private fun convertTime(time: Long): String {
+        val date = Date(time * 1000L)
+        val timeFormatted = SimpleDateFormat("HH:mm", Locale.UK)
+        timeFormatted.timeZone = TimeZone.getDefault()
+        return timeFormatted.format(date)
     }
 
     private fun isLocationEnabled(): Boolean {
@@ -136,6 +150,7 @@ class MainActivity : AppCompatActivity() {
         return locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
                 || locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
     }
+
 
     private fun requestPermissions() {
         if (ActivityCompat.shouldShowRequestPermissionRationale(
@@ -149,7 +164,7 @@ class MainActivity : AppCompatActivity() {
                 android.Manifest.permission.ACCESS_COARSE_LOCATION
             )
         ) {
-            requestPermissions()
+            showRequestDialog()//remember that this was changed!
         } else {
             ActivityCompat.requestPermissions(
                 this,
@@ -173,11 +188,12 @@ class MainActivity : AppCompatActivity() {
                 } catch (e: ActivityNotFoundException) {
                     e.printStackTrace()
                 }
-            }.setNegativeButton("Close") { dialog, _ ->
+            }.setNegativeButton("CLOSE") { dialog, _ ->
                 dialog.cancel()
-            }.setTitle("Location Permission Needed")
-            .setMessage("This permission is needed for accessing the location. It can be enabled under the Application Settings.")
+            }.setTitle("Location permission needed")
+            .setMessage("This permission is needed for accessing the location.It can enabled under the Application Settings.")
             .show()
-
     }
+
+
 }

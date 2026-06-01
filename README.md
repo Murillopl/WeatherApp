@@ -25,7 +25,7 @@ The app fetches weather information from a public API (e.g., OpenWeatherMap) and
 
 
 
---
+---
 
 ## 🧠 Technologies Used
 
